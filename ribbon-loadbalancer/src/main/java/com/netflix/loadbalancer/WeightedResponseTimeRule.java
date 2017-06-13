@@ -17,18 +17,18 @@
 */
 package com.netflix.loadbalancer;
 
+import com.netflix.client.config.IClientConfig;
+import com.netflix.client.config.IClientConfigKey;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.netflix.client.config.IClientConfig;
-import com.netflix.client.config.IClientConfigKey;
 
 /** 
  * Rule that use the average/percentile response times
@@ -100,8 +100,7 @@ public class WeightedResponseTimeRule extends RoundRobinRule {
 
     protected Timer serverWeightTimer = null;
 
-    protected AtomicBoolean serverWeightAssignmentInProgress = new AtomicBoolean(
-            false);
+    protected AtomicBoolean serverWeightAssignmentInProgress = new AtomicBoolean(false);
 
     String name = "unknown";
 
@@ -222,10 +221,8 @@ public class WeightedResponseTimeRule extends RoundRobinRule {
             ServerWeight serverWeight = new ServerWeight();
             try {
                 serverWeight.maintainWeights();
-            } catch (Throwable t) {
-                logger.error(
-                        "Throwable caught while running DynamicServerWeightTask for "
-                                + name, t);
+            } catch (Exception e) {
+                logger.error("Error running DynamicServerWeightTask for {}", name, e);
             }
         }
     }
@@ -237,11 +234,11 @@ public class WeightedResponseTimeRule extends RoundRobinRule {
             if (lb == null) {
                 return;
             }
-            if (serverWeightAssignmentInProgress.get()) {
-                return; // Ping in progress - nothing to do
-            } else {
-                serverWeightAssignmentInProgress.set(true);
+            
+            if (!serverWeightAssignmentInProgress.compareAndSet(false,  true))  {
+                return; 
             }
+            
             try {
                 logger.info("Weight adjusting job started");
                 AbstractLoadBalancer nlb = (AbstractLoadBalancer) lb;
@@ -270,8 +267,8 @@ public class WeightedResponseTimeRule extends RoundRobinRule {
                     finalWeights.add(weightSoFar);   
                 }
                 setWeights(finalWeights);
-            } catch (Throwable t) {
-                logger.error("Exception while dynamically calculating server weights", t);
+            } catch (Exception e) {
+                logger.error("Error calculating server weights", e);
             } finally {
                 serverWeightAssignmentInProgress.set(false);
             }

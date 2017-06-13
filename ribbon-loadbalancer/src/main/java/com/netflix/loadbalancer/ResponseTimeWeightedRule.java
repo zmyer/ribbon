@@ -90,8 +90,7 @@ public class ResponseTimeWeightedRule extends RoundRobinRule {
 
     protected Timer serverWeightTimer = null;
 
-    protected AtomicBoolean serverWeightAssignmentInProgress = new AtomicBoolean(
-            false);
+    protected AtomicBoolean serverWeightAssignmentInProgress = new AtomicBoolean(false);
 
     String name = "unknown";
 
@@ -126,9 +125,7 @@ public class ResponseTimeWeightedRule extends RoundRobinRule {
 
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             public void run() {
-                logger
-                        .info("Stopping NFLoadBalancer-serverWeightTimer-"
-                                + name);
+                logger.info("Stopping NFLoadBalancer-serverWeightTimer-{}", name);
                 serverWeightTimer.cancel();
             }
         }));
@@ -136,7 +133,7 @@ public class ResponseTimeWeightedRule extends RoundRobinRule {
 
     public void shutdown() {
         if (serverWeightTimer != null) {
-            logger.info("Stopping NFLoadBalancer-serverWeightTimer-" + name);
+            logger.info("Stopping NFLoadBalancer-serverWeightTimer-{}", name);
             serverWeightTimer.cancel();
         }
     }
@@ -209,10 +206,8 @@ public class ResponseTimeWeightedRule extends RoundRobinRule {
             ServerWeight serverWeight = new ServerWeight();
             try {
                 serverWeight.maintainWeights();
-            } catch (Throwable t) {
-                logger.error(
-                        "Throwable caught while running DynamicServerWeightTask for "
-                                + name, t);
+            } catch (Exception e) {
+                logger.error("Error running DynamicServerWeightTask for {}", name, e);
             }
         }
     }
@@ -224,11 +219,11 @@ public class ResponseTimeWeightedRule extends RoundRobinRule {
             if (lb == null) {
                 return;
             }
-            if (serverWeightAssignmentInProgress.get()) {
-                return; // Ping in progress - nothing to do
-            } else {
-                serverWeightAssignmentInProgress.set(true);
+            
+            if (!serverWeightAssignmentInProgress.compareAndSet(false, true)) {
+                return;
             }
+            
             try {
                 logger.info("Weight adjusting job started");
                 AbstractLoadBalancer nlb = (AbstractLoadBalancer) lb;
@@ -257,8 +252,8 @@ public class ResponseTimeWeightedRule extends RoundRobinRule {
                     finalWeights.add(weightSoFar);   
                 }
                 setWeights(finalWeights);
-            } catch (Throwable t) {
-                logger.error("Exception while dynamically calculating server weights", t);
+            } catch (Exception e) {
+                logger.error("Error calculating server weights", e);
             } finally {
                 serverWeightAssignmentInProgress.set(false);
             }
